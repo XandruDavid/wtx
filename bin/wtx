@@ -58,7 +58,6 @@ stdout is data, stderr is messages. exit 0 ok, 1 failed, 2 bad usage.
 EOF
 }
 
-cmd_new() { die "not implemented"; }
 cmd_rm() { die "not implemented"; }
 
 # --- git -------------------------------------------------------------------
@@ -200,6 +199,99 @@ cmd_ls() {
   local repo
   repo=$(main_checkout)
   print_repo_group "$repo"
+}
+
+# --- new -------------------------------------------------------------------
+
+open_editor() {
+  if ! command -v code >/dev/null; then
+    warn "code is not on PATH, no window opened"
+    return 0
+  fi
+  code -n "$1" >&2 || warn "could not open a VSCode window for $1"
+}
+
+create_branch_worktree() {
+  local repo=$1 branch=$2 dest=$3 from=$4
+
+  if git -C "$repo" remote | grep -qx origin; then
+    git -C "$repo" fetch --quiet origin ||
+      warn "fetch failed, using the origin refs already on disk"
+  fi
+
+  # Resolve after the fetch, so origin/HEAD is as fresh as it can be.
+  local base=$from
+  if [[ -z $base ]]; then base=$(default_base "$repo"); fi
+  if [[ -z $base ]]; then
+    die "nothing to branch from here; pass --from <ref>"
+  fi
+  if ! git -C "$repo" rev-parse --verify --quiet "$base" >/dev/null; then
+    die "cannot resolve $base"
+  fi
+  info "branching off $base"
+
+  # --no-track, or git makes the base the new branch's upstream and a later
+  # `git push` aims at main. No upstream is deliberate: your first push fails
+  # with the `--set-upstream` command to copy.
+  git -C "$repo" worktree add --no-track -b "$branch" "$dest" "$base" >&2 ||
+    die "git worktree add failed for $dest"
+}
+
+# shellcheck disable=SC2034  # resume is consumed by resume_branch, added next
+cmd_new() {
+  local name='' branch='' from='' parent='' resume=0
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --branch)
+        branch=${2-}
+        if [[ -z $branch ]]; then usage_err "--branch needs a value"; fi
+        shift
+        ;;
+      --from)
+        from=${2-}
+        if [[ -z $from ]]; then usage_err "--from needs a value"; fi
+        shift
+        ;;
+      --parent)
+        parent=${2-}
+        if [[ -z $parent ]]; then usage_err "--parent needs a value"; fi
+        shift
+        ;;
+      --resume) resume=1 ;;
+      -*) usage_err "unknown flag: $1" ;;
+      *)
+        if [[ -n $name ]]; then usage_err "new takes one name"; fi
+        name=$1
+        ;;
+    esac
+    shift
+  done
+  if [[ -z $name ]]; then usage_err "new needs a name"; fi
+
+  require_repo
+  local repo
+  repo=$(main_checkout)
+
+  name=$(sanitize_name "$name")
+  if [[ -z $name ]]; then die "that name has no usable characters in it"; fi
+  if [[ -z $branch ]]; then branch=$name; fi
+  git check-ref-format --branch "$branch" >/dev/null 2>&1 ||
+    die "not a valid branch name: $branch"
+
+  if [[ -z $parent ]]; then parent=$(worktree_parent "$repo"); fi
+  local dest="$parent/$name"
+  if [[ -e $dest ]]; then die "already exists: $dest"; fi
+  mkdir -p "$parent"
+
+  if git -C "$repo" show-ref --quiet --verify "refs/heads/$branch"; then
+    die "branch $branch already exists (resume is not implemented yet)"
+  else
+    create_branch_worktree "$repo" "$branch" "$dest" "$from"
+  fi
+
+  open_editor "$dest"
+  info "worktree ready at $dest on branch $branch"
+  printf '%s\n' "$dest"
 }
 
 # --- dispatch --------------------------------------------------------------

@@ -530,7 +530,7 @@ git commit -m "feat: add wtx skeleton with subcommand dispatch"
 `list_worktrees` is the important one: every later decision reads git's own
 worktree list rather than rebuilding a path from a name.
 
-- [ ] **Step 1: add the git helpers** above the dispatch section
+- [x] **Step 1: add the git helpers** above the dispatch section
 
 ```bash
 # --- git -------------------------------------------------------------------
@@ -599,7 +599,7 @@ list_worktrees() {
 }
 ```
 
-- [ ] **Step 2: add `cmd_ls`** (replacing the stub)
+- [x] **Step 2: add `cmd_ls`** (replacing the stub)
 
 ```bash
 # --- ls --------------------------------------------------------------------
@@ -676,7 +676,7 @@ cmd_ls() {
 }
 ```
 
-- [ ] **Step 3: check it against a repo that already has worktrees**
+- [x] **Step 3: check it against a repo that already has worktrees**
 
 ```bash
 cd ~/dev/myapp && ~/dev/XandruDavid/wtx/bin/wtx ls
@@ -698,7 +698,7 @@ cd ~/dev/XandruDavid/wtx && ~/dev/XandruDavid/wtx/bin/wtx ls
 make check
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add bin/wtx
@@ -717,7 +717,7 @@ git commit -m "feat: add wtx ls for the current repo"
 **Produces:** `cmd_new`, `open_editor`, `create_branch_worktree`. Tasks 5–7 add
 calls inside `cmd_new`.
 
-- [ ] **Step 1: add `open_editor` and `create_branch_worktree`**
+- [x] **Step 1: add `open_editor` and `create_branch_worktree`**
 
 ```bash
 # --- new -------------------------------------------------------------------
@@ -757,10 +757,11 @@ create_branch_worktree() {
 }
 ```
 
-- [ ] **Step 2: add `cmd_new`** (replacing the stub). The resume branch calls a
+- [x] **Step 2: add `cmd_new`** (replacing the stub). The resume branch calls a
   function that Task 7 writes; until then it dies with a clear message.
 
 ```bash
+# shellcheck disable=SC2034  # resume is consumed by resume_branch, added next
 cmd_new() {
   local name='' branch='' from='' parent='' resume=0
   while [[ $# -gt 0 ]]; do
@@ -818,7 +819,7 @@ cmd_new() {
 }
 ```
 
-- [ ] **Step 3: check it in a throwaway repo**
+- [x] **Step 3: check it in a throwaway repo**
 
 ```bash
 # use the scratch() helper from the top of section 6
@@ -860,7 +861,7 @@ git -C ../clone-worktrees/from-default log -1 --format=%s
 # -> "real work on master", NOT "abandoned main"
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add bin/wtx
@@ -1097,6 +1098,10 @@ resume_branch() {
 ```
 
 - [ ] **Step 2: replace the placeholder in `cmd_new`**
+
+`resume` is now actually read, so delete the
+`# shellcheck disable=SC2034` line directly above `cmd_new() {` — it was only
+there to keep Task 4 lint-clean.
 
 Change:
 
