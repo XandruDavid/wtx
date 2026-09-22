@@ -976,36 +976,36 @@ reason this is not a VSCode task like the old script used.
 # Detected from the lockfile; first match wins.
 run_setup() {
   local dest=$1
-  local -a cmd=()
+  local -a install_cmd=()
 
   if [[ -f $dest/pnpm-lock.yaml ]]; then
-    cmd=(pnpm install)
+    install_cmd=(pnpm install)
   elif [[ -f $dest/bun.lock || -f $dest/bun.lockb ]]; then
-    cmd=(bun install)
+    install_cmd=(bun install)
   elif [[ -f $dest/yarn.lock ]]; then
-    cmd=(yarn install)
+    install_cmd=(yarn install)
   elif [[ -f $dest/package-lock.json ]]; then
-    cmd=(npm install)
+    install_cmd=(npm install)
   elif [[ -f $dest/uv.lock ]]; then
-    cmd=(uv sync)
+    install_cmd=(uv sync)
   elif [[ -f $dest/Cargo.lock ]]; then
-    cmd=(cargo fetch)
+    install_cmd=(cargo fetch)
   fi
 
-  if [[ ${#cmd[@]} -eq 0 ]]; then
+  if [[ ${#install_cmd[@]} -eq 0 ]]; then
     # Say so: an undetected repo should not look like a silent no-op.
     info "no lockfile found, skipping dependency install"
     return 0
   fi
-  if ! command -v "${cmd[0]}" >/dev/null; then
-    warn "${cmd[0]} is not on PATH, skipping ${cmd[*]}"
+  if ! command -v "${install_cmd[0]}" >/dev/null; then
+    warn "${install_cmd[0]} is not on PATH, skipping ${install_cmd[*]}"
     return 0
   fi
 
-  info "running ${cmd[*]}"
+  info "running ${install_cmd[*]}"
   # A failed install still leaves a usable worktree, so warn and carry on.
-  (cd "$dest" && "${cmd[@]}") >&2 ||
-    warn "${cmd[*]} failed; run it yourself in $dest"
+  (cd "$dest" && "${install_cmd[@]}") >&2 ||
+    warn "${install_cmd[*]} failed; run it yourself in $dest"
 }
 ```
 

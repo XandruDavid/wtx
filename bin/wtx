@@ -237,6 +237,40 @@ create_branch_worktree() {
     die "git worktree add failed for $dest"
 }
 
+# A worktree is a fresh checkout, so gitignored files like .env are missing and
+# most projects do not boot. Plain globs, one per line, not gitignore syntax:
+# no negations. A pattern matching a directory copies it whole, so a careless
+# glob can make `wtx new` slow - that is on whoever wrote the pattern.
+copy_includes() {
+  local repo=$1 dest=$2
+  local file="$repo/.worktreeinclude"
+  if [[ ! -f $file ]]; then return 0; fi
+
+  local files=0 dirs=0 pattern src rel
+  while IFS= read -r pattern || [[ -n $pattern ]]; do
+    pattern=${pattern%%#*}
+    pattern=$(printf '%s' "$pattern" | tr -d '[:space:]')
+    pattern=${pattern%/} # "certs/" and "certs" mean the same thing
+    if [[ -z $pattern ]]; then continue; fi
+    # shellcheck disable=SC2086  # unquoted on purpose: the glob must expand
+    for src in "$repo"/$pattern; do
+      if [[ ! -e $src ]]; then continue; fi
+      rel=${src#"$repo"/}
+      mkdir -p "$dest/$(dirname "$rel")"
+      # -R so a directory comes whole, -p to keep modes and times - a 600 key
+      # must stay 600. cp keeps symlinks as symlinks rather than following them.
+      cp -Rp "$src" "$dest/$rel"
+      if [[ -d $src ]]; then dirs=$((dirs + 1)); else files=$((files + 1)); fi
+    done
+  done <"$file"
+
+  if [[ $dirs -gt 0 ]]; then
+    info "copied $files file(s) and $dirs directory(ies) from .worktreeinclude"
+  elif [[ $files -gt 0 ]]; then
+    info "copied $files file(s) from .worktreeinclude"
+  fi
+}
+
 # shellcheck disable=SC2034  # resume is consumed by resume_branch, added next
 cmd_new() {
   local name='' branch='' from='' parent='' resume=0
@@ -289,6 +323,7 @@ cmd_new() {
     create_branch_worktree "$repo" "$branch" "$dest" "$from"
   fi
 
+  copy_includes "$repo" "$dest"
   open_editor "$dest"
   info "worktree ready at $dest on branch $branch"
   printf '%s\n' "$dest"
