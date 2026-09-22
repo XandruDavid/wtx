@@ -1062,7 +1062,7 @@ Two cases. Already checked out somewhere → that worktree is the answer, no
 question needed. Not checked out → ask, because a name collision is more often
 a typo than an intention.
 
-- [ ] **Step 1: add `resume_branch`**
+- [x] **Step 1: add `resume_branch`**
 
 ```bash
 resume_branch() {
@@ -1097,7 +1097,7 @@ resume_branch() {
 }
 ```
 
-- [ ] **Step 2: replace the placeholder in `cmd_new`**
+- [x] **Step 2: replace the placeholder in `cmd_new`**
 
 `resume` is now actually read, so delete the
 `# shellcheck disable=SC2034` line directly above `cmd_new() {` — it was only
@@ -1115,7 +1115,7 @@ to:
     resume_branch "$repo" "$branch" "$dest" "$resume"
 ```
 
-- [ ] **Step 3: check all three paths**
+- [x] **Step 3: check all three paths**
 
 ```bash
 cd "$(scratch)"
@@ -1140,7 +1140,7 @@ git branch other-parked origin/main
 make -C ~/dev/XandruDavid/wtx check
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add bin/wtx
@@ -1156,7 +1156,7 @@ git commit -m "feat: resume wtx new from an existing branch"
 **Consumes:** `require_repo`, `main_checkout`, `sanitize_name`, `list_worktrees`.
 **Produces:** `find_worktree`, `cmd_rm`.
 
-- [ ] **Step 1: add `find_worktree`**
+- [x] **Step 1: add `find_worktree`**
 
 ```bash
 # --- rm --------------------------------------------------------------------
@@ -1177,7 +1177,7 @@ find_worktree() {
 `k = split(...)` then `a[k]` on purpose — `length(array)` is a gawk extension
 and macOS awk does not have it.
 
-- [ ] **Step 2: add `cmd_rm`** (replacing the stub)
+- [x] **Step 2: add `cmd_rm`** (replacing the stub)
 
 ```bash
 cmd_rm() {
@@ -1251,7 +1251,7 @@ cmd_rm() {
 }
 ```
 
-- [ ] **Step 3: check every gate**
+- [x] **Step 3: check every gate**
 
 ```bash
 cd "$(scratch)"
@@ -1293,7 +1293,7 @@ git -C ../repo-worktrees/dirname2 push -q -u origin feature/x
 make -C ~/dev/XandruDavid/wtx check
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add bin/wtx
@@ -1314,7 +1314,7 @@ git keeps no global index of worktrees, so `--all` needs one. `wtx new` and
 `wtx ls` write the main checkout's path to a state file; `--all` reads it and
 asks git the rest.
 
-- [ ] **Step 1: add the registry functions**
+- [x] **Step 1: add the registry functions**
 
 ```bash
 # --- registry --------------------------------------------------------------
@@ -1344,14 +1344,14 @@ registered_repos() {
 }
 ```
 
-- [ ] **Step 2: register in `cmd_new`** (after `repo=$(main_checkout)`) and in
+- [x] **Step 2: register in `cmd_new`** (after `repo=$(main_checkout)`) and in
   `cmd_ls`'s single-repo path:
 
 ```bash
   register_repo "$repo"
 ```
 
-- [ ] **Step 3: implement `--all` in `cmd_ls`**, replacing the `die`
+- [x] **Step 3: implement `--all` in `cmd_ls`**, replacing the `die`
 
 ```bash
   if [[ $all -eq 1 ]]; then
@@ -1367,7 +1367,7 @@ registered_repos() {
   fi
 ```
 
-- [ ] **Step 4: check it**
+- [x] **Step 4: check it**
 
 ```bash
 W=~/dev/XandruDavid/wtx/bin/wtx
@@ -1384,7 +1384,7 @@ printf '%s\n' /tmp/deleted-repo >>"${XDG_STATE_HOME:-$HOME/.local/state}/wtx/rep
 make -C ~/dev/XandruDavid/wtx check
 ```
 
-- [ ] **Step 5: document the registry in `README.md`**, under Usage:
+- [x] **Step 5: document the registry in `README.md`**, under Usage:
 
 ```markdown
 `wtx ls --all` lists every repo wtx has seen. It learns about a repo the first
@@ -1392,7 +1392,7 @@ time you run `wtx ls` or `wtx new` inside it, and remembers in
 `~/.local/state/wtx/repos`. Delete that file to forget everything.
 ```
 
-- [ ] **Step 6: commit**
+- [x] **Step 6: commit**
 
 ```bash
 git add bin/wtx README.md
@@ -1403,20 +1403,20 @@ git commit -m "feat: add wtx ls --all across registered repos"
 
 ### Task 10: Clean up the smoke tests
 
-- [ ] **Step 1: remove the worktree Task 6 made in the real repo**
+- [x] **Step 1: remove the worktree Task 6 made in the real repo**
 
 ```bash
 cd ~/dev/myapp && wtx rm wtx-smoke-test --force
 git branch -D wtx-smoke-test    # wtx will not do this for you, by design
 ```
 
-- [ ] **Step 2: remove the scratch repo**
+- [x] **Step 2: remove the scratch repo**
 
 ```bash
 rm -rf "${TMPDIR:-/tmp}/wtx-scratch"
 ```
 
-- [ ] **Step 3: install for real and use it once from `$PATH`**
+- [x] **Step 3: install for real and use it once from `$PATH`**
 
 ```bash
 ln -s ~/dev/XandruDavid/wtx/bin/wtx ~/.local/bin/wtx
