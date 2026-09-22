@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# wtx - git worktrees as repo siblings. See README.md.
+set -euo pipefail
+
+WTX_VERSION="0.0.0-alpha"
+
+# --- output ----------------------------------------------------------------
+# All messages go to stderr; stdout is reserved for paths and tables.
+
+if [[ -t 2 && -z ${NO_COLOR-} ]]; then
+  C_RED=$'\033[31m'
+  C_YEL=$'\033[33m'
+  C_OFF=$'\033[0m'
+else
+  C_RED='' C_YEL='' C_OFF=''
+fi
+
+info() { printf '%s\n' "$*" >&2; }
+warn() { printf '%swtx: %s%s\n' "$C_YEL" "$*" "$C_OFF" >&2; }
+
+die() {
+  printf '%swtx: %s%s\n' "$C_RED" "$*" "$C_OFF" >&2
+  exit 1
+}
+
+usage_err() {
+  printf '%swtx: %s%s\n' "$C_RED" "$*" "$C_OFF" >&2
+  printf "run 'wtx help' for usage\n" >&2
+  exit 2
+}
+
+usage() {
+  cat <<'EOF'
+wtx - git worktrees as repo siblings
+
+usage:
+  wtx new <name> [--branch <branch>] [--from <ref>] [--parent <dir>] [--resume]
+  wtx rm  <name|branch> [--force]
+  wtx ls  [--all]
+  wtx help
+  wtx --version
+
+new   create <parent>/<name> with a new branch off the default branch, copy the
+      files listed in .worktreeinclude, install dependencies, open VSCode.
+      if the branch already exists, offer to resume from it.
+rm    remove a worktree and its directory. never deletes the branch.
+ls    list worktrees grouped by repo. --all covers every repo wtx has seen.
+
+  --branch <branch>  branch name, if it should differ from the directory name
+  --from <ref>       what to branch off, instead of the default branch
+  --parent <dir>     where to put the worktree
+  --resume           check out an existing branch without asking
+  --force            remove even with uncommitted or unpushed work
+  --all              every repo, not just this one
+
+parent directory defaults to ../<repo>-worktrees; set WTX_PARENT to change it.
+stdout is data, stderr is messages. exit 0 ok, 1 failed, 2 bad usage.
+EOF
+}
+
+cmd_new() { die "not implemented"; }
+cmd_rm() { die "not implemented"; }
+cmd_ls() { die "not implemented"; }
+
+# --- dispatch --------------------------------------------------------------
+
+main() {
+  local cmd=${1-}
+  if [[ $# -gt 0 ]]; then shift; fi
+
+  case $cmd in
+    new) cmd_new "$@" ;;
+    rm | remove) cmd_rm "$@" ;;
+    ls | list) cmd_ls "$@" ;;
+    help | --help | -h) usage ;;
+    --version) printf 'wtx %s\n' "$WTX_VERSION" ;;
+    '')
+      usage >&2
+      exit 2
+      ;;
+    *) usage_err "unknown command: $cmd" ;;
+  esac
+}
+
+main "$@"
