@@ -58,8 +58,6 @@ stdout is data, stderr is messages. exit 0 ok, 1 failed, 2 bad usage.
 EOF
 }
 
-cmd_rm() { die "not implemented"; }
-
 # --- git -------------------------------------------------------------------
 
 require_repo() {
@@ -395,6 +393,90 @@ cmd_new() {
   open_editor "$dest"
   info "worktree ready at $dest on branch $branch"
   printf '%s\n' "$dest"
+}
+
+# --- rm --------------------------------------------------------------------
+
+# Match by branch name or by directory basename, raw or kebab-cased. Never
+# rebuild the path from the name: a worktree's directory and its branch can
+# differ, and --parent means the path is not predictable anyway.
+find_worktree() {
+  local repo=$1 raw=$2 sane=$3
+  list_worktrees "$repo" | awk -F'\t' -v raw="$raw" -v sane="$sane" -v r="$repo" '
+    $1 == r { next }
+    $2 == raw || $2 == sane { print; next }
+    { k = split($1, a, "/"); if (a[k] == raw || a[k] == sane) print }
+  '
+}
+
+cmd_rm() {
+  local force=0 needle=''
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --force | -f) force=1 ;;
+      -*) usage_err "unknown flag: $1" ;;
+      *)
+        if [[ -n $needle ]]; then usage_err "rm takes one name"; fi
+        needle=$1
+        ;;
+    esac
+    shift
+  done
+  if [[ -z $needle ]]; then usage_err "rm needs a worktree name"; fi
+
+  require_repo
+  local repo
+  repo=$(main_checkout)
+
+  local matches count
+  matches=$(find_worktree "$repo" "$needle" "$(sanitize_name "$needle")")
+  count=$(printf '%s' "$matches" | grep -c . || true)
+
+  if [[ $count -eq 0 ]]; then
+    die "no worktree matching '$needle' - try: wtx ls"
+  fi
+  if [[ $count -gt 1 ]]; then
+    info "'$needle' matches more than one worktree:"
+    printf '%s\n' "$matches" | cut -f1 >&2
+    die "name one of them exactly"
+  fi
+
+  local dest branch state
+  IFS=$'\t' read -r dest branch state <<<"$matches"
+
+  if [[ $force -eq 0 ]]; then
+    if [[ -d $dest ]] && [[ -n $(git -C "$dest" status --porcelain) ]]; then
+      info "$dest has uncommitted changes:"
+      git -C "$dest" status --short >&2
+      die "commit or stash them, or pass --force"
+    fi
+    # Only that it is on *a* remote. Whether it is merged is git's business.
+    if [[ $branch != '-' ]]; then
+      if [[ -z $(git -C "$repo" remote) ]]; then
+        # Every commit would count as unpushed, so the check says nothing here.
+        # Say that out loud rather than silently dropping a safety net.
+        info "this repo has no remote, so there is nothing to check against"
+      else
+        local unpushed
+        unpushed=$(git -C "$repo" rev-list --count "$branch" --not --remotes)
+        if [[ $unpushed -gt 0 ]]; then
+          info "$branch has $unpushed commit(s) that are on no remote:"
+          git -C "$repo" log --oneline "$branch" --not --remotes >&2
+          die "push them, or pass --force"
+        fi
+      fi
+    fi
+  fi
+
+  if [[ -d $dest ]]; then
+    # --force is safe here: the checks above already ran, and this stops git's
+    # own duplicate checks (untracked files, submodules) from blocking us.
+    git -C "$repo" worktree remove --force "$dest" || die "could not remove $dest"
+  fi
+  git -C "$repo" worktree prune
+  info "removed worktree $dest"
+  if [[ $branch != '-' ]]; then info "kept branch $branch"; fi
+  if [[ $state == locked ]]; then warn "that worktree was locked"; fi
 }
 
 # --- dispatch --------------------------------------------------------------
