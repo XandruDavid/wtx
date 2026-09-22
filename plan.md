@@ -877,7 +877,7 @@ git commit -m "feat: add wtx new for fresh branches"
 **Consumes:** `info` from Task 2.
 **Produces:** `copy_includes`, called from `cmd_new`.
 
-- [ ] **Step 1: add `copy_includes`**
+- [x] **Step 1: add `copy_includes`**
 
 ```bash
 # A worktree is a fresh checkout, so gitignored files like .env are missing and
@@ -915,14 +915,14 @@ copy_includes() {
 }
 ```
 
-- [ ] **Step 2: call it in `cmd_new`**, right after the worktree exists and
+- [x] **Step 2: call it in `cmd_new`**, right after the worktree exists and
   before `open_editor`:
 
 ```bash
   copy_includes "$repo" "$dest"
 ```
 
-- [ ] **Step 3: check it**
+- [x] **Step 3: check it**
 
 ```bash
 cd "$(scratch)"
@@ -949,7 +949,7 @@ printf 'does/not/exist/*\n' >>.worktreeinclude
 make -C ~/dev/XandruDavid/wtx check            # the SC2086 disable must be there
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add bin/wtx
@@ -969,7 +969,7 @@ This runs in `wtx`'s own process, which inherits your shell's environment — so
 nvm's node is already on `$PATH` and no `nvm use` dance is needed. That is the
 reason this is not a VSCode task like the old script used.
 
-- [ ] **Step 1: add `run_setup`**
+- [x] **Step 1: add `run_setup`**
 
 ```bash
 # Install before the editor opens, so the window is ready when it appears.
@@ -1012,14 +1012,14 @@ run_setup() {
 Note the empty-array rule from §5: the guard is on `${#cmd[@]}`, and
 `"${cmd[@]}"` is only expanded after that guard passes.
 
-- [ ] **Step 2: call it in `cmd_new`**, after `copy_includes` and before
+- [x] **Step 2: call it in `cmd_new`**, after `copy_includes` and before
   `open_editor`:
 
 ```bash
   run_setup "$dest"
 ```
 
-- [ ] **Step 3: check it**
+- [x] **Step 3: check it**
 
 ```bash
 cd "$(scratch)"
@@ -1042,7 +1042,7 @@ time ~/dev/XandruDavid/wtx/bin/wtx new wtx-smoke-test
 # expect pnpm install to hardlink from the store, well under a minute
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add bin/wtx

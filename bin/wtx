@@ -308,7 +308,37 @@ run_setup() {
     warn "${install_cmd[*]} failed; run it yourself in $dest"
 }
 
-# shellcheck disable=SC2034  # resume is consumed by resume_branch, added next
+resume_branch() {
+  local repo=$1 branch=$2 dest=$3 resume=$4
+
+  local existing
+  existing=$(list_worktrees "$repo" |
+    awk -F'\t' -v b="$branch" '$2 == b { print $1; exit }')
+
+  if [[ -n $existing ]]; then
+    info "branch $branch is already checked out at $existing"
+    open_editor "$existing"
+    printf '%s\n' "$existing"
+    exit 0
+  fi
+
+  if [[ $resume -eq 0 ]]; then
+    if [[ ! -t 0 ]]; then
+      die "branch $branch already exists; pass --resume to check it out into $dest"
+    fi
+    info "branch $branch already exists and is not checked out anywhere"
+    local reply
+    read -rp "resume from it in $dest? [y/N] " reply
+    case $reply in
+      [yY] | [yY][eE][sS]) ;;
+      *) die "aborted" ;;
+    esac
+  fi
+
+  git -C "$repo" worktree add "$dest" "$branch" >&2 ||
+    die "git worktree add failed for $dest"
+}
+
 cmd_new() {
   local name='' branch='' from='' parent='' resume=0
   while [[ $# -gt 0 ]]; do
@@ -355,7 +385,7 @@ cmd_new() {
   mkdir -p "$parent"
 
   if git -C "$repo" show-ref --quiet --verify "refs/heads/$branch"; then
-    die "branch $branch already exists (resume is not implemented yet)"
+    resume_branch "$repo" "$branch" "$dest" "$resume"
   else
     create_branch_worktree "$repo" "$branch" "$dest" "$from"
   fi
