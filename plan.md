@@ -734,6 +734,7 @@ create_branch_worktree() {
   local repo=$1 branch=$2 dest=$3 from=$4
 
   if git -C "$repo" remote | grep -qx origin; then
+    info "fetching origin..."
     git -C "$repo" fetch --quiet origin ||
       warn "fetch failed, using the origin refs already on disk"
   fi
@@ -1214,12 +1215,17 @@ cmd_rm() {
 
   local dest branch state
   IFS=$'\t' read -r dest branch state <<<"$matches"
+  info "found $dest (branch $branch)"
 
   if [[ $force -eq 0 ]]; then
-    if [[ -d $dest ]] && [[ -n $(git -C "$dest" status --porcelain) ]]; then
-      info "$dest has uncommitted changes:"
-      git -C "$dest" status --short >&2
-      die "commit or stash them, or pass --force"
+    # Slow on a big working tree, so say what we are waiting on.
+    if [[ -d $dest ]]; then
+      info "checking for uncommitted changes..."
+      if [[ -n $(git -C "$dest" status --porcelain) ]]; then
+        info "$dest has uncommitted changes:"
+        git -C "$dest" status --short >&2
+        die "commit or stash them, or pass --force"
+      fi
     fi
     # Only that it is on *a* remote. Whether it is merged is git's business.
     if [[ $branch != '-' ]]; then
@@ -1228,6 +1234,7 @@ cmd_rm() {
         # Say that out loud rather than silently dropping a safety net.
         info "this repo has no remote, so there is nothing to check against"
       else
+        info "checking for unpushed commits..."
         local unpushed
         unpushed=$(git -C "$repo" rev-list --count "$branch" --not --remotes)
         if [[ $unpushed -gt 0 ]]; then
@@ -1240,10 +1247,14 @@ cmd_rm() {
   fi
 
   if [[ -d $dest ]]; then
+    # The slowest step by far: this deletes the directory, and node_modules in
+    # a monorepo is gigabytes. Without a line here it looks like a hang.
+    info "deleting the worktree directory (slow if node_modules is big)..."
     # --force is safe here: the checks above already ran, and this stops git's
     # own duplicate checks (untracked files, submodules) from blocking us.
     git -C "$repo" worktree remove --force "$dest" || die "could not remove $dest"
   fi
+  info "pruning git's worktree bookkeeping"
   git -C "$repo" worktree prune
   info "removed worktree $dest"
   if [[ $branch != '-' ]]; then info "kept branch $branch"; fi
