@@ -30,6 +30,10 @@ Symlink it, so `git pull` in this repo updates the command:
 
 `wtx help` has the flags.
 
+`wtx ls --all` lists every repo wtx has seen. It learns about a repo the first
+time you run `wtx ls` or `wtx new` inside it, and remembers in
+`~/.local/state/wtx/repos`. Delete that file to forget everything.
+
 New branches start with **no upstream**, so your first `git push` prints the
 `--set-upstream` command to copy. That is deliberate: it keeps `git push` from
 ever aiming at your default branch by accident.

@@ -123,6 +123,32 @@ list_worktrees() {
   '
 }
 
+# --- registry --------------------------------------------------------------
+# git has no global list of repos, so `ls --all` needs one. new and ls append
+# to it, so a repo registers itself the first time you use wtx in it.
+
+registry_file() {
+  printf '%s/wtx/repos\n' "${XDG_STATE_HOME:-$HOME/.local/state}"
+}
+
+register_repo() {
+  local file
+  file=$(registry_file)
+  mkdir -p "$(dirname "$file")"
+  if [[ -f $file ]] && grep -qxF "$1" "$file"; then return 0; fi
+  printf '%s\n' "$1" >>"$file"
+}
+
+# Registered repos that still exist, most recently registered last.
+registered_repos() {
+  local file repo
+  file=$(registry_file)
+  if [[ ! -f $file ]]; then return 0; fi
+  while IFS= read -r repo; do
+    if [[ -n $repo ]] && [[ -d $repo/.git ]]; then printf '%s\n' "$repo"; fi
+  done <"$file"
+}
+
 # --- ls --------------------------------------------------------------------
 
 # "+ahead/-behind" against the default branch. Not against the upstream:
@@ -190,12 +216,21 @@ cmd_ls() {
   done
 
   if [[ $all -eq 1 ]]; then
-    die "--all is not implemented yet"
+    local found=0 repo
+    while IFS= read -r repo; do
+      print_repo_group "$repo"
+      found=1
+    done < <(registered_repos)
+    if [[ $found -eq 0 ]]; then
+      info "no repos registered yet - run wtx ls or wtx new inside one"
+    fi
+    return 0
   fi
 
   require_repo
   local repo
   repo=$(main_checkout)
+  register_repo "$repo"
   print_repo_group "$repo"
 }
 
@@ -370,6 +405,7 @@ cmd_new() {
   require_repo
   local repo
   repo=$(main_checkout)
+  register_repo "$repo"
 
   name=$(sanitize_name "$name")
   if [[ -z $name ]]; then die "that name has no usable characters in it"; fi
