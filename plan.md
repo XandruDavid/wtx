@@ -180,10 +180,10 @@ what you should see:
 
 ```
 myapp (/Users/you/dev)
-  BRANCH                            STATE  ±main    LAST COMMIT  PATH
-  main (main checkout)              dirty  +0/-11   3 days ago   myapp
-  fix-lint-rules  dirty  +0/-71   4 days ago   myapp-fix-lint-naming
-  round-units    dirty  +11/-16  6 hours ago  myapp-tax-id
+  BRANCH                STATE  ±main    LAST COMMIT  PATH
+  main (main checkout)  dirty  +0/-11   3 days ago   myapp
+  fix-lint-rules        dirty  +0/-71   4 days ago   myapp-fix-lint-naming
+  round-units           dirty  +11/-16  6 hours ago  myapp-tax-id
 
 wtx (/Users/you/dev/XandruDavid)
   BRANCH                STATE  ±main  LAST COMMIT     PATH
@@ -679,7 +679,7 @@ cmd_ls() {
 - [x] **Step 3: check it against a repo that already has worktrees**
 
 ```bash
-cd ~/dev/myapp && ~/dev/XandruDavid/wtx/bin/wtx ls
+cd <a repo of yours that already has worktrees> && ~/dev/XandruDavid/wtx/bin/wtx ls
 ```
 
 Expect one group header plus a row per worktree, with `±main` as the third
@@ -1037,7 +1037,7 @@ make -C ~/dev/XandruDavid/wtx check
 Then the real one — this is the case the 30–60 second budget was set for:
 
 ```bash
-cd ~/dev/myapp
+cd <a real repo with a lockfile>
 time ~/dev/XandruDavid/wtx/bin/wtx new wtx-smoke-test
 # expect pnpm install to hardlink from the store, well under a minute
 ```
@@ -1373,7 +1373,7 @@ registered_repos() {
 W=~/dev/XandruDavid/wtx/bin/wtx
 cat "${XDG_STATE_HOME:-$HOME/.local/state}/wtx/repos" 2>/dev/null || echo "(none yet)"
 
-cd ~/dev/myapp && "$W" ls >/dev/null   # registers
+cd <another repo of yours> && "$W" ls >/dev/null   # registers
 cd ~/dev/XandruDavid/wtx && "$W" ls >/dev/null           # registers
 cat "${XDG_STATE_HOME:-$HOME/.local/state}/wtx/repos"    # -> two paths
 cd /tmp && "$W" ls --all                                 # -> two groups, works outside a repo
@@ -1406,7 +1406,7 @@ git commit -m "feat: add wtx ls --all across registered repos"
 - [x] **Step 1: remove the worktree Task 6 made in the real repo**
 
 ```bash
-cd ~/dev/myapp && wtx rm wtx-smoke-test --force
+cd <that repo> && wtx rm wtx-smoke-test --force
 git branch -D wtx-smoke-test    # wtx will not do this for you, by design
 ```
 
