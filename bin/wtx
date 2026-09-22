@@ -60,7 +60,147 @@ EOF
 
 cmd_new() { die "not implemented"; }
 cmd_rm() { die "not implemented"; }
-cmd_ls() { die "not implemented"; }
+
+# --- git -------------------------------------------------------------------
+
+require_repo() {
+  git rev-parse --git-common-dir >/dev/null 2>&1 ||
+    die "not a git repository: $PWD"
+  if [[ $(git rev-parse --is-bare-repository) == true ]]; then
+    die "bare repositories are not supported"
+  fi
+}
+
+# The main checkout, even when called from inside another worktree: .git is
+# shared, so --git-common-dir always points at the main one.
+main_checkout() {
+  dirname "$(git rev-parse --path-format=absolute --git-common-dir)"
+}
+
+# The name becomes a directory, so kebab-case it.
+sanitize_name() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' |
+    sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'
+}
+
+worktree_parent() {
+  if [[ -n ${WTX_PARENT-} ]]; then
+    printf '%s\n' "$WTX_PARENT"
+    return 0
+  fi
+  printf '%s/%s-worktrees\n' "$(dirname "$1")" "$(basename "$1")"
+}
+
+# The branch to start new work from, as a ref.
+#   origin/HEAD  - set at clone time, records what the remote calls its default
+#                  branch, so this is right in a master or develop repo
+#   origin/main  - for clones old enough to be missing origin/HEAD
+#   main / HEAD  - no remote at all, so there is no remote default to read
+# Empty only in a repo with no commits; callers decide whether that is fatal.
+default_base() {
+  local head
+  head=$(git -C "$1" symbolic-ref --quiet refs/remotes/origin/HEAD) || head=''
+  if [[ -n $head ]]; then
+    printf '%s\n' "${head#refs/remotes/}"
+    return 0
+  fi
+  local ref
+  for ref in origin/main main HEAD; do
+    if git -C "$1" rev-parse --verify --quiet "$ref" >/dev/null; then
+      printf '%s\n' "$ref"
+      return 0
+    fi
+  done
+}
+
+# One TAB-separated line per worktree: path, branch ("-" if detached), state.
+list_worktrees() {
+  git -C "$1" worktree list --porcelain | awk '
+    function flush() { if (p != "") print p "\t" (b == "" ? "-" : b) "\t" s }
+    /^worktree /   { flush(); p = substr($0, 10); b = ""; s = "ok" }
+    /^branch /     { b = substr($0, 8); sub(/^refs\/heads\//, "", b) }
+    /^detached$/   { b = "" }
+    /^prunable /   { s = "gone" }
+    /^locked/      { s = "locked" }
+    END            { flush() }
+  '
+}
+
+# --- ls --------------------------------------------------------------------
+
+# "+ahead/-behind" against the default branch. Not against the upstream:
+# branches made by `wtx new` have none, so those counts would always be empty.
+ahead_behind() {
+  local repo=$1 branch=$2 base=$3
+  if [[ $branch == '-' || -z $base ]]; then
+    printf '%s\n' -
+    return 0
+  fi
+  local counts
+  counts=$(git -C "$repo" rev-list --left-right --count "$base...$branch" 2>/dev/null) ||
+    {
+      printf '%s\n' -
+      return 0
+    }
+  printf '+%s/-%s\n' "$(printf '%s' "$counts" | cut -f2)" \
+    "$(printf '%s' "$counts" | cut -f1)"
+}
+
+# One group: a header, then the rows aligned on their own. Piping each group
+# separately keeps a wide path in one repo from padding another.
+print_repo_group() {
+  local repo=$1
+  local parent base base_label
+  parent=$(dirname "$repo")
+  base=$(default_base "$repo")
+  base_label=${base##*/} # origin/main -> main
+  if [[ -z $base_label ]]; then base_label=base; fi
+  printf '\n%s (%s)\n' "$(basename "$repo")" "$parent"
+
+  {
+    # header names what it compares against: ±main, ±master, ±develop
+    printf 'BRANCH\tSTATE\t±%s\tLAST COMMIT\tPATH\n' "$base_label"
+    local path branch state label dirty when
+    while IFS=$'\t' read -r path branch state; do
+      label=$branch
+      if [[ $path == "$repo" ]]; then label="$branch (main checkout)"; fi
+
+      if [[ ! -d $path ]]; then
+        dirty=gone
+        when='-'
+      else
+        dirty=clean
+        if [[ -n $(git -C "$path" status --porcelain) ]]; then dirty=dirty; fi
+        when=$(git -C "$path" log -1 --format=%cr 2>/dev/null || printf '%s' -)
+      fi
+      if [[ $state == locked ]]; then dirty="$dirty,locked"; fi
+
+      printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$label" "$dirty" "$(ahead_behind "$repo" "$branch" "$base")" \
+        "$when" "${path#"$parent"/}"
+    done < <(list_worktrees "$repo")
+  } | column -t -s $'\t' | sed 's/^/  /'
+}
+
+cmd_ls() {
+  local all=0
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --all | -a) all=1 ;;
+      *) usage_err "unknown argument: $1" ;;
+    esac
+    shift
+  done
+
+  if [[ $all -eq 1 ]]; then
+    die "--all is not implemented yet"
+  fi
+
+  require_repo
+  local repo
+  repo=$(main_checkout)
+  print_repo_group "$repo"
+}
 
 # --- dispatch --------------------------------------------------------------
 
