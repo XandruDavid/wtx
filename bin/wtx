@@ -638,8 +638,15 @@ cmd_rm() {
     die "name one of them exactly"
   fi
 
+  remove_worktree "$repo" "$matches" "$force"
+}
+
+# Remove one worktree, given its list_worktrees line. Dies on the first thing
+# that makes removal unsafe, unless force is 1.
+remove_worktree() {
+  local repo=$1 force=$3
   local dest branch state head
-  IFS=$'\t' read -r dest branch state head <<<"$matches"
+  IFS=$'\t' read -r dest branch state head <<<"$2"
   if [[ $branch == '-' ]]; then
     info "found $dest $(branch_label "$branch" "$head")"
   else
