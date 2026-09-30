@@ -35,7 +35,7 @@ wtx - git worktrees as repo siblings
 
 usage:
   wtx new <name> [--branch <branch>] [--from <ref>] [--parent <dir>] [--resume]
-  wtx rm  <name|branch> [--force]
+  wtx rm  [<name|branch>] [--force]
   wtx ls  [--all]
   wtx help
   wtx --version
@@ -44,6 +44,7 @@ new   create <parent>/<name> with a new branch off the default branch, copy the
       files listed in .worktreeinclude, install dependencies, open VSCode.
       if the branch already exists, offer to resume from it.
 rm    remove a worktree and its directory. never deletes the branch.
+      without a name, pick from a list (fzf if installed, else a menu).
 ls    list worktrees grouped by repo. --all covers every repo wtx has seen.
 
   --branch <branch>  branch name, if it should differ from the directory name
@@ -619,7 +620,12 @@ cmd_rm() {
     esac
     shift
   done
-  if [[ -z $needle ]]; then usage_err "rm needs a worktree name"; fi
+  if [[ -z $needle ]]; then
+    if [[ ! -t 0 || ! -t 2 ]]; then usage_err "rm needs a worktree name"; fi
+    require_repo
+    rm_picked "$(main_checkout)" "$force"
+    return 0
+  fi
 
   require_repo
   local repo
@@ -639,6 +645,80 @@ cmd_rm() {
   fi
 
   remove_worktree "$repo" "$matches" "$force"
+}
+
+# Let the user choose worktrees to remove, one path per line on stdout. fzf when
+# it is installed (fuzzy search, Tab to pick several), else a numbered menu.
+pick_worktrees() {
+  local repo=$1
+  local base wt_parent now
+  base=$(default_base "$repo")
+  wt_parent=$(worktree_parent "$repo")
+  wt_parent=${wt_parent%/}
+  now=$(date +%s)
+
+  info "checking worktrees..."
+  local -a paths=() shown=()
+  local path branch label dirty ab ct cr rows=''
+  while IFS=$'\t' read -r path branch label dirty ab ct cr; do
+    if [[ $path == "$repo" ]]; then continue; fi
+    paths+=("$path")
+    rows+="$(worktree_name "$repo" "$wt_parent" "$path")"$'\t'"$label"
+    rows+=$'\t'"$dirty"$'\t'"$ab"$'\t'"$(short_age "$ct" "$now")"$'\n'
+  done < <(worktree_rows "$repo" "$base")
+  if [[ ${#paths[@]} -eq 0 ]]; then
+    die "no worktrees here besides the main checkout"
+  fi
+  local line
+  while IFS= read -r line; do shown+=("$line"); done < <(
+    printf '%s' "$rows" | column -t -s $'\t'
+  )
+
+  local i
+  if command -v fzf >/dev/null; then
+    for ((i = 0; i < ${#paths[@]}; i++)); do
+      printf '%s\t%s\n' "${paths[i]}" "${shown[i]}"
+    done | fzf --multi --delimiter=$'\t' --with-nth=2 --height=40% --reverse \
+      --prompt='remove> ' --header='Enter to remove, Tab to pick several' |
+      cut -f1 || true
+    return 0
+  fi
+
+  local PS3='remove which? (number, Ctrl-D to cancel) ' choice
+  select choice in "${shown[@]}"; do
+    if [[ -n $choice ]]; then
+      printf '%s\n' "${paths[REPLY - 1]}"
+      break
+    fi
+    info "not a number from the list"
+  done
+}
+
+# Remove what the user picks. With several, one failing check does not stop
+# the rest, but the exit status says something was left behind.
+rm_picked() {
+  local repo=$1 force=$2
+  local -a picked=()
+  local path
+  while IFS= read -r path; do
+    if [[ -n $path ]]; then picked+=("$path"); fi
+  done < <(pick_worktrees "$repo")
+  if [[ ${#picked[@]} -eq 0 ]]; then die "nothing picked, nothing removed"; fi
+
+  local failed=0 line
+  for path in "${picked[@]}"; do
+    line=$(list_worktrees "$repo" | awk -F'\t' -v p="$path" '$1 == p')
+    if [[ ${#picked[@]} -eq 1 ]]; then
+      remove_worktree "$repo" "$line" "$force"
+      return 0
+    fi
+    # a subshell, so a check that dies only skips this one
+    (remove_worktree "$repo" "$line" "$force") || failed=$((failed + 1))
+    info ''
+  done
+  if [[ $failed -gt 0 ]]; then
+    die "$failed of ${#picked[@]} worktree(s) not removed"
+  fi
 }
 
 # Remove one worktree, given its list_worktrees line. Dies on the first thing

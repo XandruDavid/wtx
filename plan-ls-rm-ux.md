@@ -115,11 +115,11 @@ identifiable, and let `wtx rm` work without typing a worktree name.
 
 ### Task 4 — `rm` picker
 
-- [ ] No-name path: tty check → fzf (`--multi`) or `select` fallback.
-- [ ] Picker rows reuse the `ls` row builder.
-- [ ] Refactor the single-worktree removal into a function called once per pick.
-- [ ] Multi-pick: continue on failure, non-zero exit at the end.
-- [ ] Update `wtx help` and README.
+- [x] No-name path: tty check → fzf (`--multi`) or `select` fallback.
+- [x] Picker rows reuse the `ls` row builder.
+- [x] Refactor the single-worktree removal into a function called once per pick.
+- [x] Multi-pick: continue on failure, non-zero exit at the end.
+- [x] Update `wtx help` and README.
 
 ### Task 5 — wrap up
 

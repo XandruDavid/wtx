@@ -25,10 +25,18 @@ Symlink it, so `git pull` in this repo updates the command:
 ## Usage
 
     wtx new <name>      create a worktree and open it
-    wtx rm  <name>      remove a worktree, keep the branch
+    wtx rm  [<name>]    remove a worktree, keep the branch
     wtx ls              list worktrees, grouped by repo
 
 `wtx help` has the flags.
+
+`wtx rm` with no name lets you pick from a list. With
+[fzf](https://github.com/junegunn/fzf) installed that is a fuzzy finder where
+Tab picks several; without it, a numbered menu.
+
+In a terminal, `wtx ls` shortens what it shows to fit: the NAME column is what
+`wtx rm` takes, `*` marks the main checkout, and long names are cut with `…`.
+Piped, it prints full paths and values.
 
 `wtx ls --all` lists every repo wtx has seen. It learns about a repo the first
 time you run `wtx ls` or `wtx new` inside it, and remembers in
