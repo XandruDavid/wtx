@@ -123,5 +123,5 @@ identifiable, and let `wtx rm` work without typing a worktree name.
 
 ### Task 5 — wrap up
 
-- [ ] `shellcheck` + `shfmt` clean.
+- [x] `shellcheck` + `shfmt` clean.
 - [ ] Resolve or move the open questions above.
