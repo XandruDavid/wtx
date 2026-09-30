@@ -256,10 +256,15 @@ worktree_name() {
   fi
 }
 
+# Asked of the terminal itself: `tput cols` finds it through stderr, so with
+# stderr silenced it quietly answers 80.
 terminal_width() {
-  local cols=${COLUMNS-}
-  if [[ -z $cols ]]; then cols=$(tput cols 2>/dev/null) || cols=''; fi
-  if [[ -z $cols ]]; then cols=80; fi
+  local cols=${COLUMNS-} size
+  if [[ -z $cols ]]; then
+    size=$(stty size </dev/tty 2>/dev/null) || size=''
+    cols=${size#* }
+  fi
+  if [[ -z $cols || $cols == 0 ]]; then cols=80; fi
   printf '%s\n' "$cols"
 }
 
@@ -346,7 +351,7 @@ print_repo_group() {
     now=$(date +%s)
     {
       # header names what it compares against: ±main, ±master, ±develop
-      printf 'NAME\tBRANCH\tSTATE\t±%s\tLAST COMMIT\n' "$base_label"
+      printf 'NAME\tBRANCH\tSTATE\t±%s\tAGE\n' "$base_label"
       while IFS=$'\t' read -r path branch label dirty ab ct cr; do
         if [[ $path == "$repo" ]]; then label="$label *"; fi
         printf '%s\t%s\t%s\t%s\t%s\n' \

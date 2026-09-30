@@ -118,7 +118,7 @@ One group per repo. Each row is a worktree:
 | BRANCH | the branch, or `(detached <short commit>)` when there is none. The main checkout's is marked `*`. |
 | STATE | `clean`, `dirty`, or `gone` if the folder is missing; `,locked` added when locked |
 | ±main | commits ahead/behind the default branch (named after it: ±main, ±master…). Not the upstream: new branches have none. |
-| LAST COMMIT | how long ago, short: `now`, `5m`, `2h`, `3d`, `2w`, `4mo`, `1y` |
+| AGE | time since the last commit, short: `now`, `5m`, `2h`, `3d`, `2w`, `4mo`, `1y` |
 
 The group header names the repo and where it is, and where its worktrees go
 when that is not the usual `<repo>-worktrees/` folder next to it.
@@ -129,7 +129,7 @@ full path is shortened from the start so the folder name stays visible. If it
 still doesn't fit, lines wrap. No column is ever dropped.
 
 **Piped output** is not shortened: full paths, full branch names, long times
-("3 days ago"), and the main checkout labelled in words.
+("3 days ago", in a LAST COMMIT column), and the main checkout labelled in words.
 
 **All repos.** git has no list of repos, so wtx keeps one: a repo is added the
 first time `wtx new` or `wtx ls` runs in it. `--all` lists every repo on it
