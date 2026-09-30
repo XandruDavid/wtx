@@ -114,13 +114,14 @@ One group per repo. Each row is a worktree:
 
 | Column | Shows |
 |---|---|
-| NAME | the folder name, which is what `wtx rm` takes. A worktree outside the usual folder shows its full path, so it stands out. The main checkout is marked `*`. |
-| BRANCH | the branch, or `(detached <short commit>)` when there is none |
+| NAME | the folder name, which is what `wtx rm` takes. A worktree outside the usual folder shows its full path, so it stands out. |
+| BRANCH | the branch, or `(detached <short commit>)` when there is none. The main checkout's is marked `*`. |
 | STATE | `clean`, `dirty`, or `gone` if the folder is missing; `,locked` added when locked |
 | ±main | commits ahead/behind the default branch (named after it: ±main, ±master…). Not the upstream: new branches have none. |
 | LAST COMMIT | how long ago, short: `now`, `5m`, `2h`, `3d`, `2w`, `4mo`, `1y` |
 
-The group header names the repo, where it is, and where its worktrees go.
+The group header names the repo and where it is, and where its worktrees go
+when that is not the usual `<repo>-worktrees/` folder next to it.
 
 **Fitting the terminal.** When the table is wider than the terminal, NAME and
 BRANCH are shortened with `…`, the longer one first, down to 12 characters. A

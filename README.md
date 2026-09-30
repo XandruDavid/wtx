@@ -35,7 +35,7 @@ Symlink it, so `git pull` in this repo updates the command:
 Tab picks several; without it, a numbered menu.
 
 In a terminal, `wtx ls` shortens what it shows to fit: the NAME column is what
-`wtx rm` takes, `*` marks the main checkout, and long names are cut with `…`.
+`wtx rm` takes, `*` marks the main checkout's branch, and long names are cut with `…`.
 Piped, it prints full paths and values.
 
 `wtx ls --all` lists every repo wtx has seen. It learns about a repo the first

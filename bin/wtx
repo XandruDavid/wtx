@@ -263,9 +263,10 @@ terminal_width() {
   printf '%s\n' "$cols"
 }
 
-# Trim the first two columns (NAME, BRANCH) with … until a table of TAB-
-# separated rows fits in $1 columns once `column -t` has aligned it and ls has
-# indented it. Never below 12 characters: past that, let the terminal wrap.
+# Align a table of TAB-separated rows, indented by 2, trimming the first two
+# columns (NAME, BRANCH) with … until it fits in $1 columns. Never below 12
+# characters: past that, let the terminal wrap. Aligned here rather than with
+# `column -t`, which counts bytes, so … and ± made rows wider than planned.
 fit_table() {
   local width=$1 min=12
   local -a lines=() w=() f=()
@@ -279,7 +280,7 @@ fit_table() {
     if ((${#f[@]} > n)); then n=${#f[@]}; fi
   done
 
-  # 2 of indent, then each column plus the 2 spaces column -t puts after it
+  # 2 of indent, then each column plus 2 spaces between columns
   local total=2
   for ((i = 0; i < n; i++)); do total=$((total + w[i] + 2)); done
   total=$((total - 2))
@@ -298,21 +299,25 @@ fit_table() {
 
   for line in "${lines[@]}"; do
     IFS=$'\t' read -r -a f <<<"$line"
-    # A full path keeps its end, where the folder name is: "  …/spike".
+    # A full path keeps its end, where the folder name is: "…/spike".
     case ${f[0]} in
-      '  /'* | '  ~'* | '* /'* | '* ~'*)
+      /* | '~'*)
         if ((${#f[0]} > w[0])); then
-          f[0]="${f[0]:0:2}…${f[0]:${#f[0]}-w[0]+3}"
+          f[0]="…${f[0]:${#f[0]}-w[0]+1}"
         fi
         ;;
     esac
     for i in 0 1; do
       if ((${#f[i]} > w[i])); then f[i]="${f[i]:0:w[i]-1}…"; fi
     done
-    (
-      IFS=$'\t'
-      printf '%s\n' "${f[*]}"
-    )
+    line='  '
+    for ((i = 0; i < ${#f[@]}; i++)); do
+      line+=${f[i]}
+      if ((i < ${#f[@]} - 1)); then
+        line+=$(printf '%*s' $((w[i] - ${#f[i]} + 2)) '')
+      fi
+    done
+    printf '%s\n' "$line"
   done
 }
 
@@ -331,28 +336,24 @@ print_repo_group() {
 
   local path branch label dirty ab ct cr
   if [[ -t 1 ]]; then
-    # the usual sibling folder reads shorter relative to the repo
-    local wt_shown
-    if [[ $(dirname "$wt_parent") == "$parent" ]]; then
-      wt_shown="../$(basename "$wt_parent")"
-    else
-      wt_shown=$(tilde "$wt_parent")
+    # only name the worktrees folder when it is not the usual sibling one
+    printf '\n%s  %s' "$(basename "$repo")" "$(tilde "$repo")"
+    if [[ $wt_parent != "$parent/$(basename "$repo")-worktrees" ]]; then
+      printf '  →  worktrees in %s/' "$(tilde "$wt_parent")"
     fi
-    printf '\n%s  %s  →  worktrees in %s/\n' \
-      "$(basename "$repo")" "$(tilde "$repo")" "$wt_shown"
-    local now marker
+    printf '\n'
+    local now
     now=$(date +%s)
     {
       # header names what it compares against: ±main, ±master, ±develop
-      printf '  NAME\tBRANCH\tSTATE\t±%s\tLAST COMMIT\n' "$base_label"
+      printf 'NAME\tBRANCH\tSTATE\t±%s\tLAST COMMIT\n' "$base_label"
       while IFS=$'\t' read -r path branch label dirty ab ct cr; do
-        marker='  '
-        if [[ $path == "$repo" ]]; then marker='* '; fi
-        printf '%s%s\t%s\t%s\t%s\t%s\n' \
-          "$marker" "$(worktree_name "$repo" "$wt_parent" "$path")" \
+        if [[ $path == "$repo" ]]; then label="$label *"; fi
+        printf '%s\t%s\t%s\t%s\t%s\n' \
+          "$(worktree_name "$repo" "$wt_parent" "$path")" \
           "$label" "$dirty" "$ab" "$(short_age "$ct" "$now")"
       done < <(worktree_rows "$repo" "$base")
-    } | fit_table "$(terminal_width)" | column -t -s $'\t' | sed 's/^/  /'
+    } | fit_table "$(terminal_width)"
     return 0
   fi
 
