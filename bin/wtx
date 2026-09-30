@@ -727,11 +727,15 @@ pick_worktrees() {
 # the rest, but the exit status says something was left behind.
 rm_picked() {
   local repo=$1 force=$2
+  # $(...), not < <(...): process substitution runs in the background, where
+  # Ctrl-C is ignored, so the picker outlived wtx and its prompt hit a closed
+  # terminal.
+  local chosen path
+  chosen=$(pick_worktrees "$repo")
   local -a picked=()
-  local path
   while IFS= read -r path; do
     if [[ -n $path ]]; then picked+=("$path"); fi
-  done < <(pick_worktrees "$repo")
+  done <<<"$chosen"
   if [[ ${#picked[@]} -eq 0 ]]; then
     info "nothing picked, nothing removed"
     return 0
