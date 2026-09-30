@@ -653,19 +653,23 @@ cmd_rm() {
   remove_worktree "$repo" "$matches" "$force"
 }
 
-# Let the user choose worktrees to remove, one path per line on stdout. fzf when
-# it is installed (fuzzy search, Tab to pick several), else a numbered menu.
+# Let the user choose worktrees to remove, one path per line on stdout. Shows
+# the ls table without the main checkout. fzf when it is installed (fuzzy
+# search, Tab to pick several), else a numbered menu.
 pick_worktrees() {
   local repo=$1
-  local base wt_parent now
+  local base base_label wt_parent now
   base=$(default_base "$repo")
+  base_label=${base##*/}
+  if [[ -z $base_label ]]; then base_label=base; fi
   wt_parent=$(worktree_parent "$repo")
   wt_parent=${wt_parent%/}
   now=$(date +%s)
 
   info "checking worktrees..."
-  local -a paths=() shown=()
-  local path branch label dirty ab ct cr rows=''
+  local -a paths=()
+  local path branch label dirty ab ct cr
+  local rows="NAME"$'\t'"BRANCH"$'\t'"STATE"$'\t'"±$base_label"$'\t'"AGE"$'\n'
   while IFS=$'\t' read -r path branch label dirty ab ct cr; do
     if [[ $path == "$repo" ]]; then continue; fi
     paths+=("$path")
@@ -675,26 +679,45 @@ pick_worktrees() {
   if [[ ${#paths[@]} -eq 0 ]]; then
     die "no worktrees here besides the main checkout"
   fi
-  local line
-  while IFS= read -r line; do shown+=("$line"); done < <(
-    printf '%s' "$rows" | column -t -s $'\t'
-  )
 
-  local i
+  # Room for what goes in front of each row: fzf's pointer, or "12) ".
+  local n=${#paths[@]} digits=${#paths[@]} width
+  width=$(terminal_width)
+  local -a shown=()
+  local line
   if command -v fzf >/dev/null; then
-    for ((i = 0; i < ${#paths[@]}; i++)); do
-      printf '%s\t%s\n' "${paths[i]}" "${shown[i]}"
-    done | fzf --multi --delimiter=$'\t' --with-nth=2 --height=40% --reverse \
-      --prompt='remove> ' --header='Enter to remove, Tab to pick several' |
+    while IFS= read -r line; do shown+=("${line#  }"); done < <(
+      printf '%s' "$rows" | fit_table $((width - 2))
+    )
+    local i
+    {
+      printf '%s\t%s\n' - "${shown[0]}"
+      for ((i = 0; i < n; i++)); do
+        printf '%s\t%s\n' "${paths[i]}" "${shown[i + 1]}"
+      done
+    } | fzf --multi --delimiter=$'\t' --with-nth=2 --header-lines=1 \
+      --height=40% --reverse --prompt='remove> ' \
+      --header='Enter to remove, Tab to pick several, Esc to cancel' |
       cut -f1 || true
     return 0
   fi
 
-  local PS3='remove which? (number, Ctrl-D to cancel) ' choice
-  select choice in "${shown[@]}"; do
-    if [[ -n $choice ]]; then
-      printf '%s\n' "${paths[REPLY - 1]}"
-      break
+  while IFS= read -r line; do shown+=("${line#  }"); done < <(
+    printf '%s' "$rows" | fit_table $((width - digits))
+  )
+  local i
+  printf '%*s%s\n' $((digits + 2)) '' "${shown[0]}" >&2
+  for ((i = 1; i <= n; i++)); do
+    printf '%*s) %s\n' "$digits" "$i" "${shown[i]}" >&2
+  done
+
+  local reply
+  while true; do
+    read -rp "remove which? (number, Enter to cancel) " reply || return 0
+    if [[ -z $reply ]]; then return 0; fi
+    if [[ $reply =~ ^[0-9]+$ ]] && ((reply >= 1 && reply <= n)); then
+      printf '%s\n' "${paths[reply - 1]}"
+      return 0
     fi
     info "not a number from the list"
   done
@@ -709,7 +732,10 @@ rm_picked() {
   while IFS= read -r path; do
     if [[ -n $path ]]; then picked+=("$path"); fi
   done < <(pick_worktrees "$repo")
-  if [[ ${#picked[@]} -eq 0 ]]; then die "nothing picked, nothing removed"; fi
+  if [[ ${#picked[@]} -eq 0 ]]; then
+    info "nothing picked, nothing removed"
+    return 0
+  fi
 
   local failed=0 line
   for path in "${picked[@]}"; do

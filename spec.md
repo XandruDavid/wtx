@@ -87,13 +87,14 @@ checked. No match: fail and suggest `wtx ls`. Several matches: fail and list
 them. The main checkout can never be removed.
 
 **Picking it.** With no name, in a terminal, wtx shows the repo's worktrees
-(never the main checkout) with the same details as `ls`, and the user picks:
+(never the main checkout) as the same table as `ls`, fitted to the terminal
+the same way, and the user picks:
 - with a fuzzy finder installed, a searchable list where several can be
   picked at once;
 - otherwise a numbered menu, one pick.
 
-Outside a terminal, the name is required. If nothing is picked, nothing is
-removed.
+Outside a terminal, the name is required. Cancelling is not an error:
+nothing is removed and wtx exits 0.
 
 **Safety checks**, skipped with `--force`:
 - uncommitted changes: show them and stop;
