@@ -89,11 +89,11 @@ identifiable, and let `wtx rm` work without typing a worktree name.
 
 ### Task 1 — detached label
 
-- [ ] `list_worktrees`: keep the HEAD sha for detached worktrees so callers can
+- [x] `list_worktrees`: keep the HEAD sha for detached worktrees so callers can
   build `(detached <short sha>)`.
-- [ ] `ls` and `rm` show the label; `ahead_behind` still prints `-` for it.
-- [ ] Callers that test `branch == '-'` (e.g. `rm` "kept branch") still work.
-- [ ] Verify by hand with `git worktree add --detach`.
+- [x] `ls` and `rm` show the label; `ahead_behind` still prints `-` for it.
+- [x] Callers that test `branch == '-'` (e.g. `rm` "kept branch") still work.
+- [x] Verify by hand with `git worktree add --detach`.
 
 ### Task 2 — terser `ls` values
 

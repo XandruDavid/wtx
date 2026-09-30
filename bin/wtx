@@ -110,17 +110,34 @@ default_base() {
   done
 }
 
-# One TAB-separated line per worktree: path, branch ("-" if detached), state.
+# One TAB-separated line per worktree: path, branch ("-" if detached), state,
+# HEAD commit.
 list_worktrees() {
   git -C "$1" worktree list --porcelain | awk '
-    function flush() { if (p != "") print p "\t" (b == "" ? "-" : b) "\t" s }
-    /^worktree /   { flush(); p = substr($0, 10); b = ""; s = "ok" }
+    function flush() {
+      if (p != "") print p "\t" (b == "" ? "-" : b) "\t" s "\t" (h == "" ? "-" : h)
+    }
+    /^worktree /   { flush(); p = substr($0, 10); b = ""; s = "ok"; h = "" }
+    /^HEAD /       { h = substr($0, 6) }
     /^branch /     { b = substr($0, 8); sub(/^refs\/heads\//, "", b) }
     /^detached$/   { b = "" }
     /^prunable /   { s = "gone" }
     /^locked/      { s = "locked" }
     END            { flush() }
   '
+}
+
+# What to call a worktree's branch in messages and tables. A detached HEAD has
+# no branch, so name the commit the way `git branch` does.
+branch_label() {
+  local branch=$1 head=$2
+  if [[ $branch != '-' ]]; then
+    printf '%s\n' "$branch"
+  elif [[ $head != '-' ]]; then
+    printf '(detached %s)\n' "${head:0:7}"
+  else
+    printf '%s\n' -
+  fi
 }
 
 # --- registry --------------------------------------------------------------
@@ -183,10 +200,10 @@ print_repo_group() {
   {
     # header names what it compares against: ±main, ±master, ±develop
     printf 'BRANCH\tSTATE\t±%s\tLAST COMMIT\tPATH\n' "$base_label"
-    local path branch state label dirty when
-    while IFS=$'\t' read -r path branch state; do
-      label=$branch
-      if [[ $path == "$repo" ]]; then label="$branch (main checkout)"; fi
+    local path branch state head label dirty when
+    while IFS=$'\t' read -r path branch state head; do
+      label=$(branch_label "$branch" "$head")
+      if [[ $path == "$repo" ]]; then label="$label (main checkout)"; fi
 
       if [[ ! -d $path ]]; then
         dirty=gone
@@ -478,9 +495,13 @@ cmd_rm() {
     die "name one of them exactly"
   fi
 
-  local dest branch state
-  IFS=$'\t' read -r dest branch state <<<"$matches"
-  info "found $dest (branch $branch)"
+  local dest branch state head
+  IFS=$'\t' read -r dest branch state head <<<"$matches"
+  if [[ $branch == '-' ]]; then
+    info "found $dest $(branch_label "$branch" "$head")"
+  else
+    info "found $dest (branch $branch)"
+  fi
 
   if [[ $force -eq 0 ]]; then
     # Slow on a big working tree, so say what we are waiting on.
