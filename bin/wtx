@@ -255,6 +255,66 @@ worktree_name() {
   fi
 }
 
+terminal_width() {
+  local cols=${COLUMNS-}
+  if [[ -z $cols ]]; then cols=$(tput cols 2>/dev/null) || cols=''; fi
+  if [[ -z $cols ]]; then cols=80; fi
+  printf '%s\n' "$cols"
+}
+
+# Trim the first two columns (NAME, BRANCH) with … until a table of TAB-
+# separated rows fits in $1 columns once `column -t` has aligned it and ls has
+# indented it. Never below 12 characters: past that, let the terminal wrap.
+fit_table() {
+  local width=$1 min=12
+  local -a lines=() w=() f=()
+  local line i n=0
+  while IFS= read -r line; do
+    lines+=("$line")
+    IFS=$'\t' read -r -a f <<<"$line"
+    for ((i = 0; i < ${#f[@]}; i++)); do
+      if ((${#f[i]} > ${w[i]:-0})); then w[i]=${#f[i]}; fi
+    done
+    if ((${#f[@]} > n)); then n=${#f[@]}; fi
+  done
+
+  # 2 of indent, then each column plus the 2 spaces column -t puts after it
+  local total=2
+  for ((i = 0; i < n; i++)); do total=$((total + w[i] + 2)); done
+  total=$((total - 2))
+  while ((total > width)); do
+    if ((w[0] >= w[1] && w[0] > min)); then
+      w[0]=$((w[0] - 1))
+    elif ((w[1] > min)); then
+      w[1]=$((w[1] - 1))
+    elif ((w[0] > min)); then
+      w[0]=$((w[0] - 1))
+    else
+      break
+    fi
+    total=$((total - 1))
+  done
+
+  for line in "${lines[@]}"; do
+    IFS=$'\t' read -r -a f <<<"$line"
+    # A full path keeps its end, where the folder name is: "  …/spike".
+    case ${f[0]} in
+      '  /'* | '  ~'* | '* /'* | '* ~'*)
+        if ((${#f[0]} > w[0])); then
+          f[0]="${f[0]:0:2}…${f[0]:${#f[0]}-w[0]+3}"
+        fi
+        ;;
+    esac
+    for i in 0 1; do
+      if ((${#f[i]} > w[i])); then f[i]="${f[i]:0:w[i]-1}…"; fi
+    done
+    (
+      IFS=$'\t'
+      printf '%s\n' "${f[*]}"
+    )
+  done
+}
+
 # One group: a header, then the rows aligned on their own. Piping each group
 # separately keeps a wide path in one repo from padding another.
 # In a terminal the values are shortened to fit; piped, they stay full.
@@ -270,8 +330,15 @@ print_repo_group() {
 
   local path branch label dirty ab ct cr
   if [[ -t 1 ]]; then
+    # the usual sibling folder reads shorter relative to the repo
+    local wt_shown
+    if [[ $(dirname "$wt_parent") == "$parent" ]]; then
+      wt_shown="../$(basename "$wt_parent")"
+    else
+      wt_shown=$(tilde "$wt_parent")
+    fi
     printf '\n%s  %s  →  worktrees in %s/\n' \
-      "$(basename "$repo")" "$(tilde "$repo")" "$(tilde "$wt_parent")"
+      "$(basename "$repo")" "$(tilde "$repo")" "$wt_shown"
     local now marker
     now=$(date +%s)
     {
@@ -284,7 +351,7 @@ print_repo_group() {
           "$marker" "$(worktree_name "$repo" "$wt_parent" "$path")" \
           "$label" "$dirty" "$ab" "$(short_age "$ct" "$now")"
       done < <(worktree_rows "$repo" "$base")
-    } | column -t -s $'\t' | sed 's/^/  /'
+    } | fit_table "$(terminal_width)" | column -t -s $'\t' | sed 's/^/  /'
     return 0
   fi
 

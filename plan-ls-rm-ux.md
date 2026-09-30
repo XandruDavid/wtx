@@ -106,13 +106,12 @@ identifiable, and let `wtx rm` work without typing a worktree name.
 
 ### Task 3 — fit to width
 
-- [ ] Detect width (`$COLUMNS` → `tput cols` → 80) only when stdout is a tty.
-- [ ] Compute column widths in `awk` (no `column` for the tty path, or run
-  `column` after truncating) and trim BRANCH / PATH with `…` down to the
+- [x] Detect width (`$COLUMNS` → `tput cols` → 80) only when stdout is a tty.
+- [x] Compute column widths in `awk` (bash, before `column -t`) and trim BRANCH / PATH with `…` down to the
   minimum.
-- [ ] `…` is multibyte: make sure width math counts it as one column in macOS
+- [x] `…` is multibyte: make sure width math counts it as one column in macOS
   `awk`.
-- [ ] Check at 60, 80, 120 columns and with `| cat`.
+- [x] Check at 60, 80, 120 columns and with `| cat`.
 
 ### Task 4 — `rm` picker
 
