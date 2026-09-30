@@ -186,39 +186,115 @@ ahead_behind() {
     "$(printf '%s' "$counts" | cut -f1)"
 }
 
+# One TAB-separated line per worktree with what ls and the rm picker show:
+# path, branch, branch label, status, ±base, commit time (unix), commit time
+# (relative). Missing values are "-".
+worktree_rows() {
+  local repo=$1 base=$2
+  local path branch state head dirty when
+  while IFS=$'\t' read -r path branch state head; do
+    if [[ ! -d $path ]]; then
+      dirty=gone
+      when=$'-\t-'
+    else
+      dirty=clean
+      if [[ -n $(git -C "$path" status --porcelain) ]]; then dirty=dirty; fi
+      when=$(git -C "$path" log -1 --format='%ct%x09%cr' 2>/dev/null) ||
+        when=$'-\t-'
+    fi
+    if [[ $state == locked ]]; then dirty="$dirty,locked"; fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$path" "$branch" "$(branch_label "$branch" "$head")" "$dirty" \
+      "$(ahead_behind "$repo" "$branch" "$base")" "$when"
+  done < <(list_worktrees "$repo")
+}
+
+# "2h ago" as "2h": the long form is most of what makes ls wrap.
+short_age() {
+  local then=$1 now=$2
+  if [[ $then == '-' ]]; then
+    printf '%s\n' -
+    return 0
+  fi
+  local s=$((now - then))
+  if ((s < 60)); then
+    printf '%s\n' now
+  elif ((s < 3600)); then
+    printf '%sm\n' $((s / 60))
+  elif ((s < 86400)); then
+    printf '%sh\n' $((s / 3600))
+  elif ((s < 604800)); then
+    printf '%sd\n' $((s / 86400))
+  elif ((s < 2592000)); then
+    printf '%sw\n' $((s / 604800))
+  elif ((s < 31536000)); then
+    printf '%smo\n' $((s / 2592000))
+  else
+    printf '%sy\n' $((s / 31536000))
+  fi
+}
+
+# $HOME as ~, for display only.
+tilde() {
+  case $1 in
+    "$HOME") printf '%s\n' '~' ;;
+    "$HOME"/*) printf '%s/%s\n' '~' "${1#"$HOME"/}" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+# What to show for a worktree: its folder name when it sits where wtx puts
+# worktrees (that is also what `wtx rm` matches), its full path otherwise, so
+# one made somewhere else stands out.
+worktree_name() {
+  local repo=$1 wt_parent=$2 path=$3
+  if [[ $path == "$repo" || $(dirname "$path") == "$wt_parent" ]]; then
+    basename "$path"
+  else
+    tilde "$path"
+  fi
+}
+
 # One group: a header, then the rows aligned on their own. Piping each group
 # separately keeps a wide path in one repo from padding another.
+# In a terminal the values are shortened to fit; piped, they stay full.
 print_repo_group() {
   local repo=$1
-  local parent base base_label
+  local parent base base_label wt_parent
   parent=$(dirname "$repo")
   base=$(default_base "$repo")
   base_label=${base##*/} # origin/main -> main
   if [[ -z $base_label ]]; then base_label=base; fi
+  wt_parent=$(worktree_parent "$repo")
+  wt_parent=${wt_parent%/}
+
+  local path branch label dirty ab ct cr
+  if [[ -t 1 ]]; then
+    printf '\n%s  %s  →  worktrees in %s/\n' \
+      "$(basename "$repo")" "$(tilde "$repo")" "$(tilde "$wt_parent")"
+    local now marker
+    now=$(date +%s)
+    {
+      # header names what it compares against: ±main, ±master, ±develop
+      printf '  NAME\tBRANCH\tSTATE\t±%s\tLAST COMMIT\n' "$base_label"
+      while IFS=$'\t' read -r path branch label dirty ab ct cr; do
+        marker='  '
+        if [[ $path == "$repo" ]]; then marker='* '; fi
+        printf '%s%s\t%s\t%s\t%s\t%s\n' \
+          "$marker" "$(worktree_name "$repo" "$wt_parent" "$path")" \
+          "$label" "$dirty" "$ab" "$(short_age "$ct" "$now")"
+      done < <(worktree_rows "$repo" "$base")
+    } | column -t -s $'\t' | sed 's/^/  /'
+    return 0
+  fi
+
   printf '\n%s (%s)\n' "$(basename "$repo")" "$parent"
-
   {
-    # header names what it compares against: ±main, ±master, ±develop
-    printf 'BRANCH\tSTATE\t±%s\tLAST COMMIT\tPATH\n' "$base_label"
-    local path branch state head label dirty when
-    while IFS=$'\t' read -r path branch state head; do
-      label=$(branch_label "$branch" "$head")
+    printf 'PATH\tBRANCH\tSTATE\t±%s\tLAST COMMIT\n' "$base_label"
+    while IFS=$'\t' read -r path branch label dirty ab ct cr; do
       if [[ $path == "$repo" ]]; then label="$label (main checkout)"; fi
-
-      if [[ ! -d $path ]]; then
-        dirty=gone
-        when='-'
-      else
-        dirty=clean
-        if [[ -n $(git -C "$path" status --porcelain) ]]; then dirty=dirty; fi
-        when=$(git -C "$path" log -1 --format=%cr 2>/dev/null || printf '%s' -)
-      fi
-      if [[ $state == locked ]]; then dirty="$dirty,locked"; fi
-
-      printf '%s\t%s\t%s\t%s\t%s\n' \
-        "$label" "$dirty" "$(ahead_behind "$repo" "$branch" "$base")" \
-        "$when" "${path#"$parent"/}"
-    done < <(list_worktrees "$repo")
+      printf '%s\t%s\t%s\t%s\t%s\n' "$path" "$label" "$dirty" "$ab" "$cr"
+    done < <(worktree_rows "$repo" "$base")
   } | column -t -s $'\t' | sed 's/^/  /'
 }
 

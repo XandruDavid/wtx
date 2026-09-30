@@ -97,12 +97,12 @@ identifiable, and let `wtx rm` work without typing a worktree name.
 
 ### Task 2 — terser `ls` values
 
-- [ ] `*` marker for the main checkout.
-- [ ] Short relative time helper (`2h`, `3d`, …), bash 3.2 compatible; from
+- [x] `*` marker for the main checkout.
+- [x] Short relative time helper (`2h`, `3d`, …), bash 3.2 compatible; from
   `git log -1 --format=%ct` and `date +%s`.
-- [ ] NAME column: basename inside `worktree_parent`, `~`-abbreviated path
+- [x] NAME column: basename inside `worktree_parent`, `~`-abbreviated path
   otherwise; header line names the worktrees folder.
-- [ ] Only in a terminal; piped output keeps full values and absolute paths.
+- [x] Only in a terminal; piped output keeps full values and absolute paths.
 
 ### Task 3 — fit to width
 
